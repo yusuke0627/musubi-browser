@@ -1,0 +1,14 @@
+{
+  "name": "msubi-browser",
+  "version": "0.1.0",
+  "module": "src/main.ts",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/main.ts",
+    "test": "bun test",
+    "dev": "bun --watch run src/main.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
