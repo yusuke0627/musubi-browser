@@ -38,17 +38,15 @@ export function tokenize(html: string): Token[] {
       // 【Data状態】通常のテキストを読み込んでいる状態
       // ============================================================
       case "data": {
+        // [if] '<' が来た → タグ開始。蓄積テキストを出力して状態遷移
         if (char === "<") {
-          // '<' を見つけた = タグが始まる合図
-          // それまで蓄積していたテキストがあれば、Textトークンとして出力
           if (buffer) {
             tokens.push({ type: "text", text: buffer });
             buffer = "";
           }
-          // 次の文字で「開始タグか終了タグか」を判断する状態へ遷移
           state = "tagOpen";
+        // [else] '<' 以外 → 普通の文字としてバッファに蓄積
         } else {
-          // '<' 以外は普通の文字 → テキストバッファに蓄積
           buffer += char;
         }
         break;
@@ -59,18 +57,17 @@ export function tokenize(html: string): Token[] {
       // 次の1文字で「開始タグ」か「終了タグ」かを判断
       // ============================================================
       case "tagOpen": {
+        // [if] '<' の次が '/' → 終了タグ（例: </body>）
         if (char === "/") {
-          // '<' の次が '/' → 終了タグ開始（例: </body>）
           isEndTag = true;
           state = "endTagOpen";
+        // [else if] '<' の次がアルファベット → 開始タグ（例: <html>）
         } else if (/[a-zA-Z]/.test(char)) {
-          // '<' の次がアルファベット → 開始タグ開始（例: <html>）
           isEndTag = false;
-          // タグ名の最初の文字を蓄積（小文字に統一）
           currentTag = char.toLowerCase();
           state = "tagName";
         }
-        // 注: '<' の次が '!'（DOCTYPE宣言）や '?'（XML処理命令）は今回非対応
+        // [else] '<' の次が '!'（DOCTYPE）や '?'（XML）は今回非対応 → 無視
         break;
       }
 
@@ -79,13 +76,12 @@ export function tokenize(html: string): Token[] {
       // 終了タグの名前を読み始める
       // ============================================================
       case "endTagOpen": {
+        // [if] アルファベット → 終了タグ名の開始
         if (/[a-zA-Z]/.test(char)) {
-          // アルファベット → 終了タグ名の開始
           currentTag = char.toLowerCase();
           state = "endTagName";
         }
-        // 注: '</' の後にアルファベット以外（空白や記号）が来るのは不正HTMLだが、
-        //     今回は単純化のため無視
+        // [else] '</' の後にアルファベット以外（不正HTML）→ 無視
         break;
       }
 
@@ -94,23 +90,21 @@ export function tokenize(html: string): Token[] {
       // タグ名の後には「属性」か「タグ終了('>')」が来る
       // ============================================================
       case "tagName": {
+        // [if] '>' が来た → タグ終了（属性なし）。StartTagトークンを出力
         if (char === ">") {
-          // '>' を見つけた = タグが終了（属性なし）
-          // 蓄積したタグ名で StartTag トークンを出力
           tokens.push({
             type: "start",
             tag: currentTag,
-            attributes: {},  // 属性なしなので空オブジェクト
+            attributes: {},
           });
-          // 変数をリセットして次のテキスト読み込みへ
           currentTag = "";
           attributes = {};
           state = "data";
+        // [else if] 空白が来た → タグ名終了。次に属性が来る可能性
         } else if (/\s/.test(char)) {
-          // 空白文字 → タグ名が終了、次に属性が来る可能性がある
           state = "beforeAttrName";
+        // [else] アルファベット/数字 → タグ名の続き
         } else {
-          // アルファベット（または数字）→ タグ名の続き
           currentTag += char.toLowerCase();
         }
         break;
@@ -121,16 +115,14 @@ export function tokenize(html: string): Token[] {
       // '>' が来るまでタグ名を蓄積
       // ============================================================
       case "endTagName": {
+        // [if] '>' → 終了タグ終了。EndTagトークンを出力
         if (char === ">") {
-          // '>' を見つけた = 終了タグが終了
-          // 蓄積したタグ名で EndTag トークンを出力
           tokens.push({ type: "end", tag: currentTag });
-          // 変数をリセット
           currentTag = "";
           isEndTag = false;
           state = "data";
+        // [else] '>' 以外 → 終了タグ名の続き
         } else {
-          // '>' 以外 → 終了タグ名の続き
           currentTag += char.toLowerCase();
         }
         break;
@@ -141,26 +133,25 @@ export function tokenize(html: string): Token[] {
       // 次の属性名が来るか、タグが終わるかを判断
       // ============================================================
       case "beforeAttrName": {
+        // [if] 空白 → 区切り。スキップして次の文字へ
         if (/\s/.test(char)) {
-          // 空白文字 → 単なる区切り、スキップして次の文字へ
           // 何もしない（状態はそのまま）
+        // [else if] '>' → タグ終了。属性途中でも閉じる
         } else if (char === ">") {
-          // '>' → タグが終了（属性が途中まで読まれた状態で終わる）
           tokens.push({
             type: "start",
             tag: currentTag,
             attributes,
           });
-          // 変数をリセット
           currentTag = "";
           attributes = {};
           state = "data";
+        // [else if] アルファベット → 属性名の開始
         } else if (/[a-zA-Z]/.test(char)) {
-          // アルファベット → 属性名の開始
-          // 属性名の最初の文字を蓄積（小文字に統一）
           currentAttrName = char.toLowerCase();
           state = "attrName";
         }
+        // [else] 上記以外（不正HTML）→ 無視して次へ
         break;
       }
 
@@ -169,30 +160,26 @@ export function tokenize(html: string): Token[] {
       // 属性名の後には '='（値あり）、空白（値なし）、'>'（タグ終了）が来る
       // ============================================================
       case "attrName": {
+        // [if] '=' → 属性値が続く。次の状態で値を読む
         if (char === "=") {
-          // '=' → 属性値が続く
-          // 属性名は確定したが、値はまだ。次の状態で値を読む
           state = "beforeAttrValue";
+        // [else if] 空白 → 属性名だけで値なし（例: <input disabled>）
         } else if (/\s/.test(char)) {
-          // 空白 → 属性名だけで値なし（例: <input disabled>）
-          // 属性名を空文字列の値として登録
           attributes[currentAttrName] = "";
-          // 次の属性があるかもしれないので、属性名読み込み前の状態へ
           state = "beforeAttrName";
+        // [else if] '>' → タグ突然終了。値なしで登録して閉じる
         } else if (char === ">") {
-          // '>' → タグが突然終了（属性値なし）
           attributes[currentAttrName] = "";
           tokens.push({
             type: "start",
             tag: currentTag,
             attributes,
           });
-          // 変数をリセット
           currentTag = "";
           attributes = {};
           state = "data";
+        // [else] アルファベット/数字 → 属性名の続き
         } else {
-          // アルファベット → 属性名の続き
           currentAttrName += char.toLowerCase();
         }
         break;
@@ -203,20 +190,19 @@ export function tokenize(html: string): Token[] {
       // 次の文字で属性値の囲い方（ダブル/シングル/なし）を判断
       // ============================================================
       case "beforeAttrValue": {
+        // [if] '=' の直後の空白 → 値の前の空白をスキップ
         if (/\s/.test(char)) {
-          // '=' の直後に空白 → 値の前の空白をスキップ
-          // （例: class = "foo" の '=' と '"' の間の空白）
+          // 何もしない
+        // [else if] '"' → ダブルクォートで囲まれた値を読む
         } else if (char === '"') {
-          // ダブルクォート → ダブルクォートで囲まれた値を読む
           currentAttrValue = "";
           state = "attrValueDoubleQuoted";
+        // [else if] "'" → シングルクォートで囲まれた値を読む
         } else if (char === "'") {
-          // シングルクォート → シングルクォートで囲まれた値を読む
           currentAttrValue = "";
           state = "attrValueSingleQuoted";
+        // [else] クォートなし → 空白か'>'が来るまで値として読む（例: class=foo）
         } else {
-          // クォートなし → 空白か '>' が来るまで値として読む
-          // （例: <div class=foo>）
           currentAttrValue = char;
           state = "attrValueUnquoted";
         }
@@ -228,14 +214,12 @@ export function tokenize(html: string): Token[] {
       // 閉じの " が来るまで、すべてを属性値として蓄積
       // ============================================================
       case "attrValueDoubleQuoted": {
+        // [if] 閉じの '"' → 属性値確定。マップに登録して次へ
         if (char === '"') {
-          // 閉じの " を見つけた = 属性値確定
-          // 属性名→属性値のマップに登録
           attributes[currentAttrName] = currentAttrValue;
-          // 属性値読了後、次の属性か '>' を待つ状態へ
           state = "afterAttrValue";
+        // [else] '"' 以外 → 属性値の一部として蓄積
         } else {
-          // " 以外 → 属性値の一部として蓄積
           currentAttrValue += char;
         }
         break;
@@ -246,12 +230,12 @@ export function tokenize(html: string): Token[] {
       // 閉じの ' が来るまで、すべてを属性値として蓄積
       // ============================================================
       case "attrValueSingleQuoted": {
+        // [if] 閉じの "'" → 属性値確定。マップに登録して次へ
         if (char === "'") {
-          // 閉じの ' を見つけた = 属性値確定
           attributes[currentAttrName] = currentAttrValue;
           state = "afterAttrValue";
+        // [else] "'" 以外 → 属性値の一部として蓄積
         } else {
-          // ' 以外 → 属性値の一部として蓄積
           currentAttrValue += char;
         }
         break;
@@ -262,24 +246,23 @@ export function tokenize(html: string): Token[] {
       // 空白か '>' が来るまで、値として蓄積
       // ============================================================
       case "attrValueUnquoted": {
+        // [if] 空白 → 値が終了。属性を登録して次の属性へ
         if (/\s/.test(char)) {
-          // 空白 → 値が終了。属性を登録して次の属性へ
           attributes[currentAttrName] = currentAttrValue;
           state = "beforeAttrName";
+        // [else if] '>' → 値が終了＆タグも終了
         } else if (char === ">") {
-          // '>' → 値が終了＆タグも終了
           attributes[currentAttrName] = currentAttrValue;
           tokens.push({
             type: "start",
             tag: currentTag,
             attributes,
           });
-          // 変数をリセット
           currentTag = "";
           attributes = {};
           state = "data";
+        // [else] 空白/'>' 以外 → 値の続き
         } else {
-          // 空白/'>' 以外 → 値の続き
           currentAttrValue += char;
         }
         break;
@@ -290,23 +273,21 @@ export function tokenize(html: string): Token[] {
       // 次に空白（次の属性へ）、'>'（タグ終了）が来ることを期待
       // ============================================================
       case "afterAttrValue": {
+        // [if] 空白 → 次の属性がある可能性がある
         if (/\s/.test(char)) {
-          // 空白 → 次の属性がある可能性がある
           state = "beforeAttrName";
+        // [else if] '>' → タグが終了
         } else if (char === ">") {
-          // '>' → タグが終了
           tokens.push({
             type: "start",
             tag: currentTag,
             attributes,
           });
-          // 変数をリセット
           currentTag = "";
           attributes = {};
           state = "data";
         }
-        // 注: 空白や '>' 以外（例えばアルファベット）が来た場合、
-        //     不正なHTMLだが、今回は無視して次の文字へ進む
+        // [else] 空白や'>'以外（不正HTML）→ 無視して次へ進む
         break;
       }
     }
