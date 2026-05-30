@@ -2,20 +2,26 @@ import type { Node } from "../html/node";
 import type { CSSRule } from "../css/types";
 import { computeStyle } from "../style/computed-style";
 import type { LayoutNode, Rect } from "./types";
+import { computeInlineLayout } from "./inline-layout";
 
 /**
  * DOMツリーに対してBlock Layoutを計算し、レイアウトツリーを構築する。
  *
  * Block Layoutの原理:
- *   - ブロック要素（display: block）は縦に積まれる
+ *   - ブロック要素（display: blockの要素）は縦に積まれる
  *   - 各要素の幅は親の幅を満たす（width = 親のwidth）
  *   - 子要素は上から順に配置され、Y座標が積み上がっていく
  *   - 親の高さは子の合計高さ
  *
+ * ブロック要素の中でインライン子を持つ場合（例: <p>hello</p>）:
+ *   - Inline Layoutを用いて行分割する
+ *   - 行数 = 高さ
+ *   - 結果は lineBoxes に保存
+ *
  * 例:
  *   <div>          → rect: { x:0, y:0, width:80, height:2 }
- *     <p>hello</p> → rect: { x:0, y:0, width:80, height:1 }
- *     <p>world</p> → rect: { x:0, y:1, width:80, height:1 }
+ *     <p>hello</p> → rect: { x:0, y:0, width:80, height:1 }, lineBoxes: [...]
+ *     <p>world</p> → rect: { x:0, y:1, width:80, height:1 }, lineBoxes: [...]
  *
  * @param rootNode - DOMツリーのルートノード
  * @param cssRules - CSSルール配列
@@ -61,7 +67,20 @@ export function computeBlockLayout(
 }
 
 /**
+ * ノードがインライン子を持つかチェックする。
+ * TextノードやHTMLAnchorElementを含む場合はtrue。
+ */
+function hasInlineChildren(node: Node): boolean {
+  return node.children.some(
+    (child) => "text" in child || ("tag" in child && child.tag === "a")
+  );
+}
+
+/**
  * 再帰的に子ノードのレイアウトを計算する。
+ *
+ * 子がインライン要素の場合はInline Layoutを使い、
+ * ブロック要素の場合は縦積みのBlock Layoutを使う。
  *
  * @param node - 現在のDOMノード
  * @param cssRules - CSSルール配列
@@ -90,33 +109,55 @@ function computeBlockLayoutRecursive(
   };
 
   // --- ステップ3: 子ノードを再帰的にレイアウト ---
+
+  // [if] 子がいない（葉ノード）→ 高さは1行
+  if (node.children.length === 0) {
+    rect.height = 1;
+    return {
+      styledNode,
+      rect,
+      children: [],
+    };
+  }
+
+  // [if] 子がインライン要素（Textや<a>）を含む → Inline Layout
+  if (hasInlineChildren(node)) {
+    // 子を行に分割して配置
+    const lineBoxes = computeInlineLayout(node.children, parentWidth, parentX, 0);
+    // 高さは行数（行がない場合は1）
+    rect.height = lineBoxes.length > 0 ? lineBoxes.length : 1;
+
+    return {
+      styledNode,
+      rect,
+      children: [],
+      lineBoxes,
+    };
+  }
+
+  // [else] 子がブロック要素のみ → 縦積みのBlock Layout
   const children: LayoutNode[] = [];
   let childCurrentY = 0; // このノード内での子のY座標（相対位置）
 
-  // [if] 子がいる → 子を縦に積む
-  if (node.children.length > 0) {
-    for (const childNode of node.children) {
-      const childLayout = computeBlockLayoutRecursive(
-        childNode,
-        cssRules,
-        parentWidth,  // 子も同じ幅
-        parentX,      // 子も同じx座標（ブロック要素は左寄せ）
-        childCurrentY // このノード内での相対Y座標
-      );
+  for (const childNode of node.children) {
+    const childLayout = computeBlockLayoutRecursive(
+      childNode,
+      cssRules,
+      parentWidth,  // 子も同じ幅
+      parentX,      // 子も同じx座標（ブロック要素は左寄せ）
+      childCurrentY // このノード内での相対Y座標
+    );
 
-      children.push(childLayout);
+    children.push(childLayout);
 
-      // [if] 子のrectがある → 次の子はこの子の下に配置
-      if (childLayout.rect) {
-        childCurrentY += childLayout.rect.height;
-      }
+    // [if] 子のrectがある → 次の子はこの子の下に配置
+    if (childLayout.rect) {
+      childCurrentY += childLayout.rect.height;
     }
-    // [if] 子がいた → 自分の高さは子の合計高さ
-    rect.height = childCurrentY;
-  } else {
-    // [else] 子がいない（葉ノード）→ 高さは1行（テキスト要素など）
-    rect.height = 1;
   }
+
+  // [if] 子がいた → 自分の高さは子の合計高さ
+  rect.height = childCurrentY;
 
   return {
     styledNode,
