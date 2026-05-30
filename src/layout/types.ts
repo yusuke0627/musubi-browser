@@ -61,6 +61,9 @@ export interface LayoutNode {
   /** 画面上の矩形 */
   rect: Rect;
 
-  /** 子レイアウトノードの配列 */
+  /** 子ブロックレイアウトノードの配列 */
   children: LayoutNode[];
+
+  /** インライン要素の行分割結果（ブロック要素がインライン子を持つ場合） */
+  lineBoxes?: LineBox[];
 }
