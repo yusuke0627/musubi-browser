@@ -32,6 +32,24 @@ bun run src/main.ts http://localhost:9999/
 bun run dev
 ```
 
+## Examples
+
+`examples/` 配下にパイプライン全体を通すデモがあります。
+
+```bash
+# デフォルトの HTML でデモ実行
+bun run examples/paint-demo.ts
+
+# 任意の HTML 文字列を渡す
+bun run examples/paint-demo.ts "<p>Hello, <a href='/'>world</a>!</p>"
+```
+
+実行すると以下が出力されます：
+- 入力 HTML
+- 各パイプラインステージの実行結果（トークン数、ノード数、レイアウト矩形など）
+- ANSI エスケープコード付きの生出力（JSON 形式）
+- ターミナル上での描画結果（リンクは青＋下線）
+
 ## Roadmap
 
 | Issue | Stage | Description |
