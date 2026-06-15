@@ -98,3 +98,14 @@ test("readInput > returns escape for lone escape byte", async () => {
   const event = await readInput(reader);
   expect(event).toEqual({ type: "escape" });
 });
+
+test("parseKeyEvent > parses Ctrl+C", () => {
+  const result = parseKeyEvent("\x03");
+  expect(result).toEqual({ type: "ctrl_c" } satisfies KeyEvent);
+});
+
+test("readInput > returns null on EOF", async () => {
+  const reader = mockReader([]);
+  const event = await readInput(reader);
+  expect(event).toBeNull();
+});

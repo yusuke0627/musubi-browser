@@ -3,7 +3,7 @@
  */
 export type KeyEvent = {
   /** 押されたキーの種類 */
-  type: "tab" | "enter" | "escape" | "other";
+  type: "tab" | "enter" | "escape" | "ctrl_c" | "other";
 };
 
 /**
@@ -22,6 +22,7 @@ export function parseKeyEvent(input: string): KeyEvent {
   if (input === "\t") return { type: "tab" };
   if (input === "\r" || input === "\r\n") return { type: "enter" };
   if (input === "\x1b") return { type: "escape" };
+  if (input === "\x03") return { type: "ctrl_c" };
   return { type: "other" };
 }
 
@@ -54,7 +55,7 @@ export function setStdinRawMode(
  */
 export async function readInput(
   reader: ReadableStreamDefaultReader<Uint8Array> = Bun.stdin.stream().getReader()
-): Promise<import("./mouse").MouseEvent | KeyEvent> {
+): Promise<import("./mouse").MouseEvent | KeyEvent | null> {
   const { parseMouseEvent } = await import("./mouse");
   let buffer = "";
   const decoder = new TextDecoder();
@@ -62,7 +63,7 @@ export async function readInput(
   while (true) {
     const { done, value } = await reader.read();
     if (done) {
-      return parseKeyEvent(buffer);
+      return buffer ? parseKeyEvent(buffer) : null;
     }
 
     buffer += decoder.decode(value, { stream: true });
