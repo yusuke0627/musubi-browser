@@ -1,4 +1,5 @@
 import { renderURL } from "./nav/pipeline";
+import type { HTTPClientLike } from "./nav/pipeline";
 import { enableMouseTracking, disableMouseTracking } from "./input/mouse";
 import { readInput, setStdinRawMode } from "./input/keyboard";
 import { hitTest } from "./nav/hit-test";
@@ -13,6 +14,9 @@ interface BrowserLoopOptions {
 
   /** 出力先。指定がなければ process.stdout が使われる */
   stdout?: { write: (data: string) => void };
+
+  /** HTTP クライアント。指定がなければ新規 HTTPClient */
+  client?: HTTPClientLike;
 }
 
 /**
@@ -40,7 +44,7 @@ export async function runBrowserLoop(
 
   try {
     while (true) {
-      const { layout, ansi } = await renderURL(currentURL, VIEWPORT_WIDTH);
+      const { layout, ansi } = await renderURL(currentURL, VIEWPORT_WIDTH, options.client);
       stdout.write(ansi);
 
       const event = await readInput(options.reader);
