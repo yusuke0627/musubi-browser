@@ -41,13 +41,14 @@ export async function runBrowserLoop(
 
   enableMouseTracking(stdout);
   setStdinRawMode(true);
+  const reader = options.reader ?? Bun.stdin.stream().getReader();
 
   try {
     while (true) {
       const { layout, ansi } = await renderURL(currentURL, VIEWPORT_WIDTH, options.client);
       stdout.write(ansi);
 
-      const event = await readInput(options.reader);
+      const event = await readInput(reader);
       if (event === null) break;
 
       const links = getFocusableLinks(layout);
