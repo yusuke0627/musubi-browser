@@ -14,19 +14,9 @@
 import { runBrowserLoop } from "../src/main";
 import type { HTTPResponse } from "../src/http/types";
 
-const PAGE1 = `
-<html><body>
-  <p>マウス入力デバッグページ</p>
-  <p><a href="/page2">次のページへ</a></p>
-</body></html>
-`.trim();
+const PAGE1 = `<html><body><p>マウス入力デバッグページ</p><p><a href="/page2">次のページへ</a></p></body></html>`;
 
-const PAGE2 = `
-<html><body>
-  <p>Page 2 へようこそ！</p>
-  <p><a href="/">戻る</a></p>
-</body></html>
-`.trim();
+const PAGE2 = `<html><body><p>Page 2 へようこそ！</p><p><a href="/">戻る</a></p></body></html>`;
 
 const mockClient = {
   async fetch(url: string): Promise<HTTPResponse> {

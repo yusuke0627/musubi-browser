@@ -45,6 +45,9 @@ export function computeBlockLayout(
   let currentY = 0; // 子を配置する現在のY座標（縦方向のカーソル）
 
   for (const childNode of rootNode.children) {
+    // 空白のみのテキストノードはスキップ
+    if (isWhitespaceOnlyTextNode(childNode)) continue;
+
     // 子ノードに対して再帰的にレイアウト計算
     const childLayout = computeBlockLayoutRecursive(childNode, cssRules, viewportWidth, 0, currentY);
 
@@ -67,12 +70,23 @@ export function computeBlockLayout(
 }
 
 /**
+ * ノードが空白のみのテキストノードかどうかを判定する。
+ * HTML ではブロック要素間の改行・空白は通常無視される。
+ */
+function isWhitespaceOnlyTextNode(node: Node): boolean {
+  return "text" in node && typeof node.text === "string" && node.text.trim().length === 0;
+}
+
+/**
  * ノードがインライン子を持つかチェックする。
  * TextノードやHTMLAnchorElementを含む場合はtrue。
+ * 空白のみのテキストノードは無視する。
  */
 function hasInlineChildren(node: Node): boolean {
   return node.children.some(
-    (child) => "text" in child || ("tag" in child && child.tag === "a")
+    (child) =>
+      !isWhitespaceOnlyTextNode(child) &&
+      ("text" in child || ("tag" in child && child.tag === "a"))
   );
 }
 
@@ -140,6 +154,9 @@ function computeBlockLayoutRecursive(
   let childCurrentY = 0; // このノード内での子のY座標（相対位置）
 
   for (const childNode of node.children) {
+    // 空白のみのテキストノードはスキップ
+    if (isWhitespaceOnlyTextNode(childNode)) continue;
+
     const childLayout = computeBlockLayoutRecursive(
       childNode,
       cssRules,
