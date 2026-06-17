@@ -82,8 +82,9 @@ export function enableMouseTracking(
 ): void {
   // ?1000h: クリックレポート
   // ?1002h: ドラッグレポート
-  // ?1015h: SGR 拡張座標フォーマット
-  stdout.write("\x1b[?1000h\x1b[?1002h\x1b[?1015h");
+  // ?1006h: SGR 拡張座標フォーマット（主流のターミナル対応）
+  // ?1015h: SGR 拡張座標フォーマット（互換性用）
+  stdout.write("\x1b[?1000h\x1b[?1002h\x1b[?1006h\x1b[?1015h");
 }
 
 /**
@@ -94,5 +95,5 @@ export function enableMouseTracking(
 export function disableMouseTracking(
   stdout: { write: (data: string) => void } = process.stdout
 ): void {
-  stdout.write("\x1b[?1000l\x1b[?1002l\x1b[?1015l");
+  stdout.write("\x1b[?1000l\x1b[?1002l\x1b[?1006l\x1b[?1015l");
 }

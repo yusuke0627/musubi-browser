@@ -90,12 +90,12 @@ test("enableMouseTracking > writes SGR mouse tracking enable sequences", () => {
   const writes: string[] = [];
   const stdout = { write: (data: string) => writes.push(data) };
   enableMouseTracking(stdout as any);
-  expect(writes).toEqual(["\x1b[?1000h\x1b[?1002h\x1b[?1015h"]);
+  expect(writes).toEqual(["\x1b[?1000h\x1b[?1002h\x1b[?1006h\x1b[?1015h"]);
 });
 
 test("disableMouseTracking > writes SGR mouse tracking disable sequences", () => {
   const writes: string[] = [];
   const stdout = { write: (data: string) => writes.push(data) };
   disableMouseTracking(stdout as any);
-  expect(writes).toEqual(["\x1b[?1000l\x1b[?1002l\x1b[?1015l"]);
+  expect(writes).toEqual(["\x1b[?1000l\x1b[?1002l\x1b[?1006l\x1b[?1015l"]);
 });
