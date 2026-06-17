@@ -3,8 +3,9 @@ import type { HTTPClientLike } from "./nav/pipeline";
 import { enableMouseTracking, disableMouseTracking } from "./input/mouse";
 import { readInput, setStdinRawMode } from "./input/keyboard";
 import { hitTest } from "./nav/hit-test";
-import { getFocusableLinks, nextFocus } from "./nav/focus";
+import { getFocusableLinks } from "./nav/focus";
 import { resolveHref } from "./nav/url-resolver";
+import type { InlineBox, LayoutNode } from "./layout/types";
 
 const VIEWPORT_WIDTH = 80;
 
@@ -36,6 +37,7 @@ export async function runBrowserLoop(
 ): Promise<void> {
   let currentURL = initialURL;
   let focusedLinkIndex = 0;
+  let layout: LayoutNode = await fetchLayout(currentURL, options.client);
 
   const stdout = options.stdout ?? process.stdout;
 
@@ -45,19 +47,21 @@ export async function runBrowserLoop(
 
   try {
     while (true) {
-      const { layout, ansi } = await renderURL(currentURL, VIEWPORT_WIDTH, options.client);
+      const links = getFocusableLinks(layout);
+      const focusedLink: InlineBox | undefined = links[focusedLinkIndex];
+
+      const ansi = await paint(currentURL, options.client, focusedLink);
       stdout.write(ansi);
 
       const event = await readInput(reader);
       if (event === null) break;
-
-      const links = getFocusableLinks(layout);
 
       if (event.type === "click") {
         const clicked = hitTest(layout, event.row - 1, event.col - 1);
         if (clicked && clicked.type === "link" && clicked.href) {
           currentURL = resolveHref(clicked.href, currentURL);
           focusedLinkIndex = 0;
+          layout = await fetchLayout(currentURL, options.client);
         }
       } else if (event.type === "tab") {
         if (links.length > 0) {
@@ -69,6 +73,7 @@ export async function runBrowserLoop(
           if (link.href) {
             currentURL = resolveHref(link.href, currentURL);
             focusedLinkIndex = 0;
+            layout = await fetchLayout(currentURL, options.client);
           }
         }
       } else if (event.type === "escape" || event.type === "ctrl_c") {
@@ -79,6 +84,23 @@ export async function runBrowserLoop(
     setStdinRawMode(false);
     disableMouseTracking(stdout);
   }
+}
+
+async function fetchLayout(
+  url: string,
+  client?: HTTPClientLike
+): Promise<LayoutNode> {
+  const { layout } = await renderURL(url, VIEWPORT_WIDTH, client);
+  return layout;
+}
+
+async function paint(
+  url: string,
+  client: HTTPClientLike | undefined,
+  focusedLink: InlineBox | undefined
+): Promise<string> {
+  const { ansi } = await renderURL(url, VIEWPORT_WIDTH, client, focusedLink);
+  return ansi;
 }
 
 async function main() {

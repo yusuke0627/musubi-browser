@@ -9,7 +9,7 @@ import { tokenize } from "../html/tokenizer";
 import { buildTree } from "../html/tree-builder";
 import { computeBlockLayout } from "../layout/block-layout";
 import { paintLayoutTree } from "../paint/ansi-paint";
-import type { LayoutNode } from "../layout/types";
+import type { LayoutNode, InlineBox } from "../layout/types";
 import type { HTTPResponse } from "../http/types";
 
 /**
@@ -42,12 +42,14 @@ export interface HTTPClientLike {
  * @param url - フェッチする URL
  * @param viewportWidth - ビューポート幅（文字数）
  * @param client - HTTPClient。デフォルトは新規 HTTPClient
+ * @param focusedBox - フォーカス中のインラインボックス
  * @returns レイアウトと ANSI 出力を含む RenderResult
  */
 export async function renderURL(
   url: string,
   viewportWidth: number,
-  client: HTTPClientLike = new HTTPClient()
+  client: HTTPClientLike = new HTTPClient(),
+  focusedBox?: InlineBox
 ): Promise<RenderResult> {
   try {
     const response = await client.fetch(url);
@@ -55,7 +57,7 @@ export async function renderURL(
     const tokens = tokenize(response.body);
     const dom = buildTree(tokens);
     const layout = computeBlockLayout(dom, [], viewportWidth);
-    const ansi = paintLayoutTree(layout);
+    const ansi = paintLayoutTree(layout, focusedBox);
 
     return { layout, ansi, url };
   } finally {
