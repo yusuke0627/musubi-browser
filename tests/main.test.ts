@@ -106,3 +106,45 @@ test("runBrowserLoop > navigates via mouse click", async () => {
     server.stop();
   }
 });
+
+test("runBrowserLoop > navigates via mouse drag", async () => {
+  const server = Bun.serve({
+    port: 0,
+    fetch(req) {
+      const path = new URL(req.url).pathname;
+      if (path === "/page2") {
+        return new Response("<html><body><p>Page 2</p></body></html>");
+      }
+      return new Response(
+        '<html><body><p><a href="/page2">Go to page 2</a></p></body></html>'
+      );
+    },
+  });
+
+  try {
+    const url = `http://localhost:${server.port}/`;
+    const { layout } = await renderURL(url, 80);
+    const links = getFocusableLinks(layout);
+    expect(links.length).toBe(1);
+    const link = links[0];
+
+    const line = findLineContainingLink(layout, link);
+    expect(line).not.toBeNull();
+
+    const row = line!.rect.y + link.rect.y + 1;
+    const col = line!.rect.x + link.rect.x + 1;
+
+    const writes: string[] = [];
+    const stdout = { write: (data: string) => writes.push(data) };
+    // ターミナルが送ってくるドラッグイベント（Cb=32）
+    const reader = mockReader([`\x1b[<32;${col};${row}M`]);
+
+    await runBrowserLoop(url, { reader, stdout });
+
+    const output = writes.join("");
+    expect(output).toContain("Go to page 2");
+    expect(output).toContain("Page 2");
+  } finally {
+    server.stop();
+  }
+});

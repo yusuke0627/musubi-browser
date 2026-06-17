@@ -25,7 +25,7 @@ interface BrowserLoopOptions {
  *
  * 入力イベントを受けて:
  *   - Tab / Enter: リンクをフォーカスして選択
- *   - マウスクリック: クリックした位置のリンクに遷移
+ *   - マウスクリック / ドラッグ: クリックした位置のリンクに遷移
  *   - Escape / Ctrl+C / EOF: 終了
  *
  * @param initialURL - 初期表示する URL
@@ -56,7 +56,7 @@ export async function runBrowserLoop(
       const event = await readInput(reader);
       if (event === null) break;
 
-      if (event.type === "click") {
+      if (event.type === "click" || event.type === "drag") {
         const clicked = hitTest(layout, event.row - 1, event.col - 1);
         if (clicked && clicked.type === "link" && clicked.href) {
           currentURL = resolveHref(clicked.href, currentURL);
