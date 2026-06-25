@@ -119,4 +119,22 @@ describe("computeBlockLayout", () => {
     expect(pLayout.lineBoxes![1].boxes[0].text).toBe("world");
     expect(pLayout.lineBoxes![1].rect.y).toBe(1);
   });
+
+  it("ブロック要素間の改行・空白は無視して積まれる", () => {
+    // HTML: <html><body>\n  <p>first</p>\n  <p>second</p>\n</body></html>
+    const tokens = tokenize("<html><body>\n  <p>first</p>\n  <p>second</p>\n</body></html>");
+    const dom = buildTree(tokens);
+
+    const rules: CSSRule[] = [];
+    const layout = computeBlockLayout(dom, rules, 80);
+
+    const bodyLayout = layout.children[0];
+    // 空白ノードを無視して <p> だけが残る
+    expect(bodyLayout.children.length).toBe(2);
+
+    expect(bodyLayout.children[0].rect.y).toBe(0);
+    expect(bodyLayout.children[0].rect.height).toBe(1);
+    expect(bodyLayout.children[1].rect.y).toBe(1);
+    expect(bodyLayout.children[1].rect.height).toBe(1);
+  });
 });
